@@ -177,6 +177,10 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
 .tier.t0 .tier-label { background: var(--neutral); }
 .tier.t-1 .tier-label { background: var(--bad); }
 .tier.tu .tier-label { background: var(--line); color: var(--ink); }
+.tier.tl .tier-label { background: var(--seal-hi); color: var(--seal-ink); }
+.tier.tn .tier-label { background: var(--hate); color: var(--seal-ink); }
+.pchip em { font-style: normal; font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums; background: var(--paper); border-radius: 999px; padding: 1px 7px; }
+.tier-hint { margin: -4px 0 0; font-size: 13px; color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .pchip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); color: var(--ink); border-radius: 999px; padding: 5px 11px; font-weight: 800; font-size: 13.5px; }
 .pchip small { font-weight: 700; color: var(--ink); opacity: .6; font-size: 11px; }
@@ -438,12 +442,23 @@ function renderPeople() {
   const list = all.filter(x => !q || x.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q));
   const order = x => favs[x.k] ? 0 : hates[x.k] ? 2 : 1;
   const sorted = arr => arr.sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name));
-  const chip = x => `<span class="pchip">${markSvg(x.k)}${esc(x.name)}<small>${esc(x.where.join(" · "))}</small></span>`;
+  const chip = x => `<span class="pchip">${markSvg(x.k)}${esc(x.name)}<small>${esc(x.where.join(" · "))}</small>${x.k in ratings ? `<em>${fmt(personScore(x.k))}</em>` : ""}</span>`;
   const rated = all.filter(x => x.k in ratings).length;
   let html = `<div class="tier-summary">${viewing ? esc(viewing) + " has" : "You've"} rated ${rated} of ${all.length} contestants · ♥ ${all.filter(x => favs[x.k]).length} · 👎 ${all.filter(x => hates[x.k]).length}</div>`;
-  for (const [v, l, t] of [...SCORES].reverse()) {
-    const inTier = sorted(list.filter(x => ratings[x.k] === v));
-    html += `<div class="tier t${v}"><div class="tier-label"><b>${l}</b>${t}<span>${inTier.length} contestant${inTier.length === 1 ? "" : "s"}</span></div>
+  html += `<p class="tier-hint">Hearts add half a point and thumbs-downs take half off, which can move someone up or down a tier.</p>`;
+  // Tiers by personal score (rating ± 0.5), so a heart can lift someone to Legendary and a thumbs-down can drop them a tier.
+  const TIERS = [
+    ["tl", "+2.5", "Legendary", v => v >= 2.5],
+    ["t2", "+2", "Outstanding", v => v >= 2 && v < 2.5],
+    ["t1", "+1", "Fun", v => v >= 1 && v < 2],
+    ["t0", "0", "Neutral", v => v >= 0 && v < 1],
+    ["t-1", "−1", "Bad", v => v >= -1 && v < 0],
+    ["tn", "−1.5", "Nemesis", v => v < -1],
+  ];
+  const byScore = arr => arr.sort((a, b) => personScore(b.k) - personScore(a.k) || a.name.localeCompare(b.name));
+  for (const [cls, l, t, test] of TIERS) {
+    const inTier = byScore(list.filter(x => x.k in ratings && test(personScore(x.k))));
+    html += `<div class="tier ${cls}"><div class="tier-label"><b>${l}</b>${t}<span>${inTier.length} contestant${inTier.length === 1 ? "" : "s"}</span></div>
       <div class="chips">${inTier.length ? inTier.map(chip).join("") : '<span class="muted">Nobody here yet.</span>'}</div></div>`;
   }
   const unrated = sorted(list.filter(x => !(x.k in ratings)));
