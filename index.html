@@ -137,6 +137,21 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
 .lb .divider { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .55; padding: 12px 6px 4px; }
 .lb .unrated a { opacity: .55; }
 
+/* Sharing */
+.share { display: grid; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(127,127,127,.5); }
+.share label { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
+.share input { width: 100%; font: inherit; font-weight: 600; color: var(--ink); background: var(--paper); border: 0; border-radius: 10px; padding: 8px 12px; }
+.share-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.share-btns button { flex: 1 1 auto; border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 800; font-size: 13px; background: var(--lb-title); color: var(--lb-bg); }
+.share-btns button + button { background: transparent; color: var(--lb-ink); box-shadow: inset 0 0 0 2px var(--lb-ink); }
+.share-msg { margin: 0; font-size: 13px; opacity: .85; min-height: 1em; }
+.share-msg:empty { display: none; }
+.viewing { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; background: var(--seal); color: var(--seal-ink); border-radius: 14px; padding: 12px 16px; margin-bottom: 18px; font-weight: 800; }
+.viewing[hidden] { display: none; }
+.viewing button { border: 0; border-radius: 999px; padding: 7px 14px; font-weight: 800; background: var(--seal-ink); color: var(--seal); }
+.readonly .seg button, .readonly .fav { pointer-events: none; }
+.readonly .seg { opacity: .9; }
+
 .none { grid-column: 1 / -1; background: var(--paper); border-radius: 14px; padding: 24px; font-weight: 700; }
 .flash { animation: flash 1s ease-out; }
 @keyframes flash { 0% { box-shadow: 0 0 0 4px var(--seal); } 100% { box-shadow: 0 2px 0 var(--bg-deep); } }
@@ -166,6 +181,11 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
     <span class="status" id="status" role="status">Saved in this browser</span>
   </div>
 
+  <div class="viewing" id="viewing" hidden>
+    <span id="viewing-text"></span>
+    <button id="back-mine" type="button">Back to my rankings</button>
+  </div>
+
   <div class="layout">
     <main class="board" id="board" aria-label="Series"></main>
     <aside class="board-side">
@@ -173,6 +193,16 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
         <h2 id="lb-title">Leaderboard</h2>
         <p class="sub" id="lb-sub">Your series, best to worst</p>
         <ol id="lb"></ol>
+        <div class="share" id="share-box">
+          <label for="share-name">Share with friends</label>
+          <input id="share-name" maxlength="30" placeholder="Your name" autocomplete="off">
+          <div class="share-btns">
+            <button id="copy-link" type="button">Copy share link</button>
+            <button id="copy-text" type="button">Copy as text</button>
+          </div>
+          <input id="share-out" readonly hidden aria-label="Share text">
+          <p class="share-msg" id="share-msg" role="status"></p>
+        </div>
       </section>
     </aside>
   </div>
@@ -329,13 +359,115 @@ function renderLeaderboard() {
   if (unrated.length && rated.length) html += `<li class="divider">Not rated yet</li>`;
   html += unrated.map(x => row(x, 0)).join("");
   document.getElementById("lb").innerHTML = html;
+  const whose = viewing ? `${viewing}'s` : "Your";
   document.getElementById("lb-sub").textContent = rated.length
-    ? `${rated.length} of ${order.length} ranked, best to worst`
-    : "Your series, best to worst";
+    ? `${viewing ? whose + " picks: " : ""}${rated.length} of ${order.length} ranked, best to worst`
+    : `${whose} series, best to worst`;
 }
+
+/* ---------- sharing: rankings travel in the link itself ---------- */
+// Each series becomes five digits, one per contestant: (rating + 2, or 0 if unrated) * 2 + favourite.
+function encodeShare() {
+  const parts = [];
+  for (const s of SERIES) {
+    const code = s.cast.map(p => { const k = slug(p); return ((k in ratings ? ratings[k] + 2 : 0) * 2 + (favs[k] ? 1 : 0)); }).join("");
+    if (/[1-9]/.test(code)) parts.push(s.id + "-" + code);
+  }
+  return parts.join(".");
+}
+function decodeShare(str) {
+  const r = {}, f = {};
+  for (const part of str.split(".")) {
+    const [id, code] = part.split("-");
+    const s = SERIES.find(x => x.id === id);
+    if (!s || !/^\d{5}$/.test(code || "")) continue;
+    s.cast.forEach((p, i) => {
+      const d = Number(code[i]), k = slug(p);
+      if (d >> 1) r[k] = (d >> 1) - 2;
+      if (d & 1) f[k] = true;
+    });
+  }
+  return clean({ ratings: r, favs: f });
+}
+
+let viewing = null, mine = null;
+function enterView(data, name) {
+  if (!viewing) mine = { ratings, favs };
+  ({ ratings, favs } = data);
+  viewing = name || "A friend";
+  document.body.classList.add("readonly");
+  document.getElementById("viewing-text").textContent = `You're looking at ${viewing}'s rankings.`;
+  document.getElementById("viewing").hidden = false;
+  document.getElementById("share-box").hidden = true;
+  refresh();
+}
+function exitView() {
+  if (!viewing) return;
+  ({ ratings, favs } = mine);
+  mine = null; viewing = null;
+  document.body.classList.remove("readonly");
+  document.getElementById("viewing").hidden = true;
+  document.getElementById("share-box").hidden = false;
+  history.replaceState(null, "", location.pathname + location.search);
+  refresh();
+}
+function readHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (!h.has("share")) return;
+  enterView(decodeShare(h.get("share")), (h.get("by") || "").slice(0, 30).trim());
+}
+
+const nameEl = document.getElementById("share-name");
+const msgEl = document.getElementById("share-msg");
+const outEl = document.getElementById("share-out");
+try { nameEl.value = localStorage.getItem("tm-ranker:name") || ""; } catch {}
+nameEl.addEventListener("change", () => { try { localStorage.setItem("tm-ranker:name", nameEl.value.trim()); } catch {} });
+
+function shareLink() {
+  const enc = encodeShare();
+  if (!enc) return null;
+  const name = nameEl.value.trim();
+  return location.origin + location.pathname + "#share=" + enc + (name ? "&by=" + encodeURIComponent(name) : "");
+}
+function rankingText(link) {
+  const order = SERIES.filter(s => showSpecials || !s.special).map((s, i) => ({ s, i, ...seasonStats(s) }))
+    .filter(x => x.rated || x.ticks)
+    .sort((a, b) => b.total - a.total || b.ticks - a.ticks || b.rated - a.rated || a.i - b.i);
+  const name = nameEl.value.trim();
+  let place = 0, prev = null;
+  const lines = order.map((x, n) => {
+    if (!prev || prev.total !== x.total || prev.ticks !== x.ticks) place = n + 1;
+    prev = x;
+    return `${place}. ${x.s.name} (${fmt(x.total)}${x.ticks ? " ♥" + x.ticks : ""})`;
+  });
+  return `${name ? name + "'s" : "My"} Taskmaster series ranking\n${lines.join("\n")}\n\nSee it and make your own: ${link}`;
+}
+async function copyOut(text, done) {
+  outEl.hidden = true;
+  try {
+    await navigator.clipboard.writeText(text);
+    msgEl.textContent = done;
+  } catch {
+    outEl.value = text; outEl.hidden = false; outEl.focus(); outEl.select();
+    msgEl.textContent = "Your browser blocked copying. Select the text above and copy it yourself.";
+  }
+}
+document.getElementById("copy-link").addEventListener("click", () => {
+  const link = shareLink();
+  if (!link) { msgEl.textContent = "Rate a contestant first, then there's something to share."; return; }
+  copyOut(link, "Link copied. Anyone who opens it sees your leaderboard.");
+});
+document.getElementById("copy-text").addEventListener("click", () => {
+  const link = shareLink();
+  if (!link) { msgEl.textContent = "Rate a contestant first, then there's something to share."; return; }
+  copyOut(rankingText(link), "Ranking copied, ready to paste into a group chat.");
+});
+document.getElementById("back-mine").addEventListener("click", exitView);
+window.addEventListener("hashchange", () => { if (location.hash.startsWith("#share=")) readHash(); });
 
 /* ---------- interactions ---------- */
 boardEl.addEventListener("click", e => {
+  if (viewing) return;
   const r = e.target.closest("[data-rate]");
   const f = e.target.closest("[data-fav]");
   if (r) {
@@ -416,6 +548,7 @@ async function connect() {
       }
       setStatus("Saved to your account");
     }
+    if (snap.exists && viewing) { mine = clean(snap.data()); return; }
     if (snap.exists && !dirty && !saving && !snap.metadata.hasPendingWrites) {
       apply(snap.data()); saveLocal(); refresh();
     }
@@ -426,6 +559,7 @@ try { apply(JSON.parse(localStorage.getItem(LS) || "null")); } catch {}
 try { showSpecials = localStorage.getItem(LS_VIEW) === "1"; } catch {}
 document.getElementById("specials").setAttribute("aria-pressed", String(showSpecials));
 buildBoard();
+readHash();
 connect();
 </script>
 
