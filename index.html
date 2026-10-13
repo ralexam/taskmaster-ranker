@@ -29,7 +29,7 @@
   --on-score: #ffffff;
   --great-ink: #3a2700;
   --focus: #1f5fbf;
-  --lb-bg: #2a1d14; --lb-ink: #fffaf0; --lb-title: #f4c94a;
+  --lb-bg: #2a1d14; --lb-ink: #fffaf0; --lb-title: #f4c94a; --hate: #5d4b94;
   --display: "Bagel Fat One", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
   --body: "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
@@ -38,14 +38,14 @@
     --bg: #1d1813; --bg-deep: #2a2219; --paper: #2b241c; --ink: #f5ead8; --muted: #b8a68e;
     --line: #443a2e; --seal: #c8352f; --seal-hi: #e8564c; --seal-ink: #fff3e3;
     --bad: #e06a5f; --neutral: #8f8475; --fun: #45b896; --great: #f2c14e; --on-score: #1d1813;
-    --great-ink: #241800; --focus: #7fb0ff; --lb-bg: #120e0b; --lb-ink: #f5ead8; --lb-title: #f2c14e; color-scheme: dark;
+    --great-ink: #241800; --focus: #7fb0ff; --lb-bg: #120e0b; --lb-ink: #f5ead8; --lb-title: #f2c14e; --hate: #a996ec; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #1d1813; --bg-deep: #2a2219; --paper: #2b241c; --ink: #f5ead8; --muted: #b8a68e;
   --line: #443a2e; --seal: #c8352f; --seal-hi: #e8564c; --seal-ink: #fff3e3;
   --bad: #e06a5f; --neutral: #8f8475; --fun: #45b896; --great: #f2c14e; --on-score: #1d1813;
-  --great-ink: #241800; --focus: #7fb0ff; --lb-bg: #120e0b; --lb-ink: #f5ead8; --lb-title: #f2c14e; color-scheme: dark;
+  --great-ink: #241800; --focus: #7fb0ff; --lb-bg: #120e0b; --lb-ink: #f5ead8; --lb-title: #f2c14e; --hate: #a996ec; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -100,6 +100,9 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
 .fav:hover { color: var(--seal-hi); transform: scale(1.12); }
 .fav[aria-pressed="true"] { color: var(--seal-hi); transform: scale(1.12); }
 .fav[aria-pressed="true"] svg path { fill: currentColor; }
+.hate:hover, .hate[aria-pressed="true"] { color: var(--hate); }
+.hate[aria-pressed="true"] svg .h { fill: currentColor; }
+.icons { flex: none; display: flex; gap: 2px; }
 
 .seg { flex: none; display: flex; gap: 3px; background: var(--line); border-radius: 999px; padding: 3px; }
 .seg button { border: 0; background: transparent; border-radius: 999px; min-width: 34px; height: 28px; font-weight: 800; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; transition: background .12s, color .12s; }
@@ -110,7 +113,11 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
 .seg button[data-v="1"][aria-pressed="true"], .legend .v1 { background: var(--fun); }
 .seg button[data-v="2"][aria-pressed="true"], .legend .v2 { background: var(--great); color: var(--great-ink); }
 .legend .vfav { background: var(--seal-hi); color: var(--seal-ink); }
-@media (max-width: 420px) { .row { flex-wrap: wrap; } .name { flex-basis: calc(100% - 40px); } .seg { margin-left: 36px; } }
+.legend .vhate { background: var(--hate); color: var(--seal-ink); }
+.legend .vhate svg { width: 14px; height: 14px; }
+.legend .vhate .h { fill: currentColor; }
+.legend .vhate .c { stroke: var(--hate); }
+@media (max-width: 420px) { .row { flex-wrap: wrap; } .name { flex-basis: calc(100% - 80px); } .seg { margin-left: 68px; } }
 
 /* Leaderboard */
 .board-side { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
@@ -132,6 +139,7 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
 .pip.r1 { background: var(--fun); border-color: var(--fun); opacity: 1; }
 .pip.r2 { background: var(--great); border-color: var(--great); opacity: 1; }
 .ticks { font-size: 11px; font-weight: 800; color: var(--seal-hi); margin-left: 4px; }
+.boos { font-size: 11px; font-weight: 800; color: var(--hate); margin-left: 4px; }
 .score { font-family: var(--display); font-size: 1.2rem; font-variant-numeric: tabular-nums; min-width: 2.2ch; text-align: right; }
 .lb .empty { font-size: 14px; opacity: .8; padding: 14px 6px 6px; border-top: 1px dashed rgba(127,127,127,.5); }
 .lb .divider { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .55; padding: 12px 6px 4px; }
@@ -162,7 +170,7 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
   <header class="top">
     <div>
       <h1>Taskmaster Series Ranker</h1>
-      <p class="lede">Score every contestant. Each series is ranked by the total of its five, and every favourite adds a half-point bonus.</p>
+      <p class="lede">Score every contestant. Each series is ranked by the total of its five, every favourite adds half a point, and every hate takes half a point away.</p>
     </div>
     <ul class="legend" aria-label="Rating scale">
       <li><b class="v-1">−1</b>Bad</li>
@@ -170,6 +178,7 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
       <li><b class="v1">+1</b>Fun</li>
       <li><b class="v2">+2</b>Outstanding</li>
       <li><b class="vfav">♥</b>Favourite +0.5</li>
+      <li><b class="vhate"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="h" d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></b>Hate −0.5</li>
     </ul>
   </header>
 
@@ -244,36 +253,39 @@ const SERIES = [
   ["s22","Series 22",2026,false,["Chloe Petts","Isy Suttie","Matt Lucas","Nina Conti","Richard Ayoade"]],
 ].map(([id, name, year, finished, cast, special]) => ({ id, name, year, finished, cast, special: !!special }));
 
-const FAV_BONUS = 0.5; // each favourite nudges its series up half a point
+const FAV_BONUS = 0.5; // each favourite nudges its series up half a point, each hate down
 const SCORES = [[-1, "−1", "Bad"], [0, "0", "Neutral"], [1, "+1", "Fun"], [2, "+2", "Outstanding"]];
 const slug = n => n.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const fmt = n => n > 0 ? "+" + n : n < 0 ? "−" + Math.abs(n) : "0";
 const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const HATE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="h" d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>';
 
-let ratings = {}, favs = {}, showSpecials = false, query = "";
+let ratings = {}, favs = {}, hates = {}, showSpecials = false, query = "";
 
 /* ---------- state hygiene ---------- */
 function clean(d) {
-  const r = {}, f = {};
+  const r = {}, f = {}, h = {};
   if (d && typeof d === "object") {
     for (const [k, v] of Object.entries(d.ratings || {})) if ([-1, 0, 1, 2].includes(v)) r[k] = v;
     for (const [k, v] of Object.entries(d.favs || {})) if (v === true) f[k] = true;
+    for (const [k, v] of Object.entries(d.hates || {})) if (v === true && !f[k]) h[k] = true;
   }
-  return { ratings: r, favs: f };
+  return { ratings: r, favs: f, hates: h };
 }
-function apply(d) { ({ ratings, favs } = clean(d)); }
-const hasAny = () => Object.keys(ratings).length > 0 || Object.keys(favs).length > 0;
+function apply(d) { ({ ratings, favs, hates } = clean(d)); }
+const hasAny = () => [ratings, favs, hates].some(o => Object.keys(o).length > 0);
 
 /* ---------- scoring ---------- */
 function seasonStats(s) {
-  let total = 0, rated = 0, ticks = 0;
+  let total = 0, rated = 0, ticks = 0, boos = 0;
   for (const p of s.cast) {
     const k = slug(p);
     if (k in ratings) { total += ratings[k]; rated++; }
     if (favs[k]) ticks++;
+    if (hates[k]) boos++;
   }
-  return { total: total + ticks * FAV_BONUS, rated, ticks };
+  return { total: total + (ticks - boos) * FAV_BONUS, rated, ticks, boos };
 }
 
 /* ---------- board ---------- */
@@ -295,7 +307,7 @@ function buildBoard() {
         ${s.cast.map(p => {
           const k = slug(p);
           return `<li class="row" data-slug="${k}" data-name="${esc(p.toLowerCase())}">
-            <button class="fav" data-fav="${k}" aria-pressed="false" aria-label="Favourite: ${esc(p)}" title="Mark as a favourite">${TICK}</button>
+            <span class="icons"><button class="fav" data-fav="${k}" aria-pressed="false" aria-label="Favourite: ${esc(p)}" title="Favourite (+0.5)">${TICK}</button><button class="fav hate" data-hate="${k}" aria-pressed="false" aria-label="Hate: ${esc(p)}" title="Hate (−0.5)">${HATE}</button></span>
             <span class="name">${esc(p)}</span>
             <div class="seg" role="group" aria-label="Rating for ${esc(p)}">
               ${SCORES.map(([v, l, t]) => `<button data-rate="${k}" data-v="${v}" aria-pressed="false" title="${t}">${l}</button>`).join("")}
@@ -330,10 +342,11 @@ function applyFilter() {
 function refresh() {
   for (const b of boardEl.querySelectorAll("[data-rate]")) b.setAttribute("aria-pressed", String(ratings[b.dataset.rate] === Number(b.dataset.v)));
   for (const b of boardEl.querySelectorAll("[data-fav]")) b.setAttribute("aria-pressed", String(!!favs[b.dataset.fav]));
+  for (const b of boardEl.querySelectorAll("[data-hate]")) b.setAttribute("aria-pressed", String(!!hates[b.dataset.hate]));
   for (const card of boardEl.querySelectorAll(".card")) {
     const st = seasonStats(SERIES.find(x => x.id === card.dataset.id));
-    card.querySelector("[data-total]").textContent = st.rated || st.ticks ? fmt(st.total) : "–";
-    card.querySelector("[data-rated]").textContent = `${st.rated}/5 rated` + (st.ticks ? ` · ${st.ticks} favourite${st.ticks > 1 ? "s" : ""}` : "");
+    card.querySelector("[data-total]").textContent = st.rated || st.ticks || st.boos ? fmt(st.total) : "–";
+    card.querySelector("[data-rated]").textContent = `${st.rated}/5 rated` + (st.ticks ? ` · ${st.ticks} favourite${st.ticks > 1 ? "s" : ""}` : "") + (st.boos ? ` · ${st.boos} hated` : "");
   }
   renderLeaderboard();
 }
@@ -341,14 +354,14 @@ function refresh() {
 /* ---------- leaderboard ---------- */
 function renderLeaderboard() {
   const order = visibleSeries().map((s, i) => ({ s, i, ...seasonStats(s) }));
-  const rated = order.filter(x => x.rated > 0 || x.ticks > 0).sort((a, b) => b.total - a.total || b.ticks - a.ticks || b.rated - a.rated || a.i - b.i);
-  const unrated = order.filter(x => x.rated === 0 && x.ticks === 0);
+  const rated = order.filter(x => x.rated > 0 || x.ticks > 0 || x.boos > 0).sort((a, b) => b.total - a.total || b.ticks - a.ticks || b.rated - a.rated || a.i - b.i);
+  const unrated = order.filter(x => x.rated === 0 && x.ticks === 0 && x.boos === 0);
   const row = (x, rank) => `<li class="${rank ? "" : "unrated"}"><a href="#card-${x.s.id}" data-jump="${x.s.id}">
       <span class="rank">${rank || "·"}</span>
       <span><span class="lb-name">${esc(x.s.name)}</span>
         <span class="pips">${x.s.cast.map(p => { const k = slug(p); return `<span class="pip ${k in ratings ? "r" + ratings[k] : ""}" title="${esc(p)}"></span>`; }).join("")}
-        ${x.ticks ? `<span class="ticks">♥${x.ticks}</span>` : ""}</span></span>
-      <span class="score">${x.rated || x.ticks ? fmt(x.total) : ""}</span></a></li>`;
+        ${x.ticks ? `<span class="ticks">♥${x.ticks}</span>` : ""}${x.boos ? `<span class="boos">👎${x.boos}</span>` : ""}</span></span>
+      <span class="score">${x.rated || x.ticks || x.boos ? fmt(x.total) : ""}</span></a></li>`;
   // Competition ranking: equal totals and favourite counts share a place.
   let html = "", prev = null, place = 0;
   rated.forEach((x, n) => {
@@ -366,34 +379,39 @@ function renderLeaderboard() {
 }
 
 /* ---------- sharing: rankings travel in the link itself ---------- */
-// Each series becomes five digits, one per contestant: (rating + 2, or 0 if unrated) * 2 + favourite.
+// Each series becomes five base-15 characters, one per contestant:
+// (rating + 2, or 0 if unrated) * 3 + (0 none, 1 favourite, 2 hate). Such links carry v=2;
+// older links (no v) used digits: (rating + 2) * 2 + favourite.
 function encodeShare() {
   const parts = [];
   for (const s of SERIES) {
-    const code = s.cast.map(p => { const k = slug(p); return ((k in ratings ? ratings[k] + 2 : 0) * 2 + (favs[k] ? 1 : 0)); }).join("");
-    if (/[1-9]/.test(code)) parts.push(s.id + "-" + code);
+    const code = s.cast.map(p => { const k = slug(p); return ((k in ratings ? ratings[k] + 2 : 0) * 3 + (favs[k] ? 1 : hates[k] ? 2 : 0)).toString(15); }).join("");
+    if (/[1-9a-e]/.test(code)) parts.push(s.id + "-" + code);
   }
   return parts.join(".");
 }
-function decodeShare(str) {
-  const r = {}, f = {};
+function decodeShare(str, v2) {
+  const r = {}, f = {}, h = {};
   for (const part of str.split(".")) {
     const [id, code] = part.split("-");
     const s = SERIES.find(x => x.id === id);
-    if (!s || !/^\d{5}$/.test(code || "")) continue;
+    if (!s || !(v2 ? /^[0-9a-e]{5}$/ : /^\d{5}$/).test(code || "")) continue;
+    const base = v2 ? 3 : 2;
     s.cast.forEach((p, i) => {
-      const d = Number(code[i]), k = slug(p);
-      if (d >> 1) r[k] = (d >> 1) - 2;
-      if (d & 1) f[k] = true;
+      const d = parseInt(code[i], 15), k = slug(p);
+      const state = Math.floor(d / base), mark = d % base;
+      if (state) r[k] = state - 2;
+      if (mark === 1) f[k] = true;
+      if (mark === 2) h[k] = true;
     });
   }
-  return clean({ ratings: r, favs: f });
+  return clean({ ratings: r, favs: f, hates: h });
 }
 
 let viewing = null, mine = null;
 function enterView(data, name) {
-  if (!viewing) mine = { ratings, favs };
-  ({ ratings, favs } = data);
+  if (!viewing) mine = { ratings, favs, hates };
+  ({ ratings, favs, hates } = data);
   viewing = name || "A friend";
   document.body.classList.add("readonly");
   document.getElementById("viewing-text").textContent = `You're looking at ${viewing}'s rankings.`;
@@ -403,7 +421,7 @@ function enterView(data, name) {
 }
 function exitView() {
   if (!viewing) return;
-  ({ ratings, favs } = mine);
+  ({ ratings, favs, hates } = mine);
   mine = null; viewing = null;
   document.body.classList.remove("readonly");
   document.getElementById("viewing").hidden = true;
@@ -414,7 +432,7 @@ function exitView() {
 function readHash() {
   const h = new URLSearchParams(location.hash.slice(1));
   if (!h.has("share")) return;
-  enterView(decodeShare(h.get("share")), (h.get("by") || "").slice(0, 30).trim());
+  enterView(decodeShare(h.get("share"), h.get("v") === "2"), (h.get("by") || "").slice(0, 30).trim());
 }
 
 const nameEl = document.getElementById("share-name");
@@ -427,18 +445,18 @@ function shareLink() {
   const enc = encodeShare();
   if (!enc) return null;
   const name = nameEl.value.trim();
-  return location.origin + location.pathname + "#share=" + enc + (name ? "&by=" + encodeURIComponent(name) : "");
+  return location.origin + location.pathname + "#v=2&share=" + enc + (name ? "&by=" + encodeURIComponent(name) : "");
 }
 function rankingText(link) {
   const order = SERIES.filter(s => showSpecials || !s.special).map((s, i) => ({ s, i, ...seasonStats(s) }))
-    .filter(x => x.rated || x.ticks)
+    .filter(x => x.rated || x.ticks || x.boos)
     .sort((a, b) => b.total - a.total || b.ticks - a.ticks || b.rated - a.rated || a.i - b.i);
   const name = nameEl.value.trim();
   let place = 0, prev = null;
   const lines = order.map((x, n) => {
     if (!prev || prev.total !== x.total || prev.ticks !== x.ticks) place = n + 1;
     prev = x;
-    return `${place}. ${x.s.name} (${fmt(x.total)}${x.ticks ? " ♥" + x.ticks : ""})`;
+    return `${place}. ${x.s.name} (${fmt(x.total)}${x.ticks ? " ♥" + x.ticks : ""}${x.boos ? " 👎" + x.boos : ""})`;
   });
   return `${name ? name + "'s" : "My"} Taskmaster series ranking\n${lines.join("\n")}\n\nSee it and make your own: ${link}`;
 }
@@ -463,19 +481,23 @@ document.getElementById("copy-text").addEventListener("click", () => {
   copyOut(rankingText(link), "Ranking copied, ready to paste into a group chat.");
 });
 document.getElementById("back-mine").addEventListener("click", exitView);
-window.addEventListener("hashchange", () => { if (location.hash.startsWith("#share=")) readHash(); });
+window.addEventListener("hashchange", () => { if (location.hash.includes("share=")) readHash(); });
 
 /* ---------- interactions ---------- */
 boardEl.addEventListener("click", e => {
   if (viewing) return;
   const r = e.target.closest("[data-rate]");
   const f = e.target.closest("[data-fav]");
+  const h = e.target.closest("[data-hate]");
   if (r) {
     const k = r.dataset.rate, v = Number(r.dataset.v);
     if (ratings[k] === v) delete ratings[k]; else ratings[k] = v;
   } else if (f) {
     const k = f.dataset.fav;
-    if (favs[k]) delete favs[k]; else favs[k] = true;
+    if (favs[k]) delete favs[k]; else { favs[k] = true; delete hates[k]; }
+  } else if (h) {
+    const k = h.dataset.hate;
+    if (hates[k]) delete hates[k]; else { hates[k] = true; delete favs[k]; }
   } else return;
   refresh();
   scheduleSave();
@@ -504,7 +526,7 @@ const statusEl = document.getElementById("status");
 const setStatus = t => { statusEl.textContent = t; };
 let ref = null, saveTimer = null, saving = false, dirty = false;
 
-function saveLocal() { try { localStorage.setItem(LS, JSON.stringify({ ratings, favs })); } catch {} }
+function saveLocal() { try { localStorage.setItem(LS, JSON.stringify({ ratings, favs, hates })); } catch {} }
 function scheduleSave() {
   saveLocal();
   if (!ref) return;
@@ -518,7 +540,7 @@ async function flush() {
   if (saving || !dirty || !ref) return;
   saving = true; dirty = false;
   try {
-    await ref.set({ ratings, favs, updatedAt: Date.now() });
+    await ref.set({ ratings, favs, hates, updatedAt: Date.now() });
     setStatus("Saved to your account");
   } catch (err) {
     if (err && err.code === "unavailable") { dirty = true; saveTimer = setTimeout(flush, 1500 + Math.random() * 1000); }
