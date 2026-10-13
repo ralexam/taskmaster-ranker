@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Taskmaster Series Ranker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: mustard task-room ground, a grid of envelope-paper series cards, and a sticky leaderboard that re-sorts as you rate. */
+:root {
+  --bg: #f4c94a;
+  --bg-deep: #e8b92c;
+  --paper: #fffaf0;
+  --ink: #2a1d14;
+  --muted: #7a6550;
+  --line: #eadbbf;
+  --seal: #b4232a;
+  --seal-hi: #d9463f;
+  --seal-ink: #fff6ea;
+  --bad: #c2453b;
+  --neutral: #9c9083;
+  --fun: #2c8a74;
+  --great: #e09b00;
+  --on-score: #ffffff;
+  --great-ink: #3a2700;
+  --focus: #1f5fbf;
+  --lb-bg: #2a1d14; --lb-ink: #fffaf0; --lb-title: #f4c94a;
+  --display: "Bagel Fat One", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1d1813; --bg-deep: #2a2219; --paper: #2b241c; --ink: #f5ead8; --muted: #b8a68e;
+    --line: #443a2e; --seal: #c8352f; --seal-hi: #e8564c; --seal-ink: #fff3e3;
+    --bad: #e06a5f; --neutral: #8f8475; --fun: #45b896; --great: #f2c14e; --on-score: #1d1813;
+    --great-ink: #241800; --focus: #7fb0ff; --lb-bg: #120e0b; --lb-ink: #f5ead8; --lb-title: #f2c14e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1d1813; --bg-deep: #2a2219; --paper: #2b241c; --ink: #f5ead8; --muted: #b8a68e;
+  --line: #443a2e; --seal: #c8352f; --seal-hi: #e8564c; --seal-ink: #fff3e3;
+  --bad: #e06a5f; --neutral: #8f8475; --fun: #45b896; --great: #f2c14e; --on-score: #1d1813;
+  --great-ink: #241800; --focus: #7fb0ff; --lb-bg: #120e0b; --lb-ink: #f5ead8; --lb-title: #f2c14e; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 56px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; gap: 18px 28px; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1; margin: 0; letter-spacing: .01em; text-wrap: balance; }
+.lede { margin: 8px 0 0; font-weight: 600; color: var(--ink); opacity: .82; max-width: 46ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.legend li { display: flex; align-items: center; gap: 6px; background: var(--paper); border-radius: 999px; padding: 4px 11px 4px 5px; font-size: 13px; font-weight: 700; }
+.legend b { display: inline-grid; place-items: center; min-width: 26px; height: 22px; border-radius: 999px; font-size: 12px; color: var(--on-score); font-variant-numeric: tabular-nums; }
+
+.tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 20px; }
+.search { flex: 1 1 220px; max-width: 340px; position: relative; }
+.search input { width: 100%; font: inherit; font-weight: 600; color: var(--ink); background: var(--paper); border: 2px solid transparent; border-radius: 999px; padding: 9px 16px; }
+.search input:focus { border-color: var(--ink); outline: none; }
+.chip { display: inline-flex; align-items: center; gap: 8px; background: transparent; border: 2px solid var(--ink); border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 14px; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.status { margin-left: auto; font-size: 13px; font-weight: 700; opacity: .75; }
+
+/* Two-column body */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } .board-side { order: -1; } }
+
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 18px; }
+
+/* Series card, styled as a task envelope */
+.card { background: var(--paper); border-radius: 14px; padding: 16px 16px 12px; position: relative; box-shadow: 0 2px 0 var(--bg-deep); min-width: 0; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 10px; border-bottom: 2px dashed var(--line); margin-bottom: 6px; }
+.card h2 { font-family: var(--display); font-weight: 400; font-size: 1.45rem; line-height: 1.05; margin: 0; }
+.meta { font-size: 12.5px; color: var(--muted); font-weight: 700; margin-top: 4px; }
+.meta .airing { color: var(--seal); }
+.seal { flex: none; width: 58px; height: 58px; display: grid; place-items: center; border-radius: 47% 53% 50% 50% / 52% 48% 52% 48%;
+  background: radial-gradient(circle at 35% 30%, var(--seal-hi), var(--seal) 62%); color: var(--seal-ink);
+  font-family: var(--display); font-size: 1.25rem; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 4px rgba(0,0,0,.12); transform: rotate(-6deg); }
+.seal small { display: block; font-family: var(--body); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-top: -4px; opacity: .85; }
+.seal-in { text-align: center; line-height: 1; }
+.rated { font-size: 12px; color: var(--muted); font-weight: 700; text-align: right; margin-top: 6px; }
+
+.rows { list-style: none; margin: 0; padding: 0; }
+.row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row[hidden] { display: none; }
+.name { flex: 1 1 auto; min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+
+.fav { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; display: grid; place-items: center; padding: 0; color: var(--neutral); transition: transform .15s, color .15s; }
+.fav svg { width: 20px; height: 20px; }
+.fav:hover { color: var(--seal-hi); transform: scale(1.12); }
+.fav[aria-pressed="true"] { color: var(--seal-hi); transform: scale(1.12); }
+.fav[aria-pressed="true"] svg path { fill: currentColor; }
+
+.seg { flex: none; display: flex; gap: 3px; background: var(--line); border-radius: 999px; padding: 3px; }
+.seg button { border: 0; background: transparent; border-radius: 999px; min-width: 34px; height: 28px; font-weight: 800; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; transition: background .12s, color .12s; }
+.seg button:hover { background: var(--paper); color: var(--ink); }
+.seg button[aria-pressed="true"] { color: var(--on-score); }
+.seg button[data-v="-1"][aria-pressed="true"], .legend .v-1 { background: var(--bad); }
+.seg button[data-v="0"][aria-pressed="true"], .legend .v0 { background: var(--neutral); }
+.seg button[data-v="1"][aria-pressed="true"], .legend .v1 { background: var(--fun); }
+.seg button[data-v="2"][aria-pressed="true"], .legend .v2 { background: var(--great); color: var(--great-ink); }
+.legend .vfav { background: var(--seal-hi); color: var(--seal-ink); }
+@media (max-width: 420px) { .row { flex-wrap: wrap; } .name { flex-basis: calc(100% - 40px); } .seg { margin-left: 36px; } }
+
+/* Leaderboard */
+.board-side { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
+@media (max-width: 900px) { .board-side { position: static; } }
+.lb { background: var(--lb-bg); color: var(--lb-ink); border-radius: 16px; padding: 18px 16px 14px; }
+.lb h2 { font-family: var(--display); font-weight: 400; font-size: 1.6rem; margin: 0 0 2px; color: var(--lb-title); }
+.lb p.sub { margin: 0 0 12px; font-size: 13px; opacity: .75; }
+.lb ol { list-style: none; margin: 0; padding: 0; max-height: 64vh; overflow-y: auto; }
+@media (max-width: 900px) { .lb ol { max-height: 340px; } }
+.lb li a { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 6px; border-radius: 10px; color: inherit; text-decoration: none; }
+.lb li a:hover { background: rgba(127,127,127,.18); }
+.rank { font-family: var(--display); font-size: 1.15rem; text-align: center; font-variant-numeric: tabular-nums; }
+.lb li:nth-child(1) .rank { color: var(--great); }
+.lb-name { font-weight: 800; font-size: 14px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pips { display: flex; gap: 4px; margin-top: 3px; align-items: center; }
+.pip { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid currentColor; opacity: .45; }
+.pip.r-1 { background: var(--bad); border-color: var(--bad); opacity: 1; }
+.pip.r0 { background: var(--neutral); border-color: var(--neutral); opacity: 1; }
+.pip.r1 { background: var(--fun); border-color: var(--fun); opacity: 1; }
+.pip.r2 { background: var(--great); border-color: var(--great); opacity: 1; }
+.ticks { font-size: 11px; font-weight: 800; color: var(--seal-hi); margin-left: 4px; }
+.score { font-family: var(--display); font-size: 1.2rem; font-variant-numeric: tabular-nums; min-width: 2.2ch; text-align: right; }
+.lb .empty { font-size: 14px; opacity: .8; padding: 14px 6px 6px; border-top: 1px dashed rgba(127,127,127,.5); }
+.lb .divider { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .55; padding: 12px 6px 4px; }
+.lb .unrated a { opacity: .55; }
+
+.none { grid-column: 1 / -1; background: var(--paper); border-radius: 14px; padding: 24px; font-weight: 700; }
+.flash { animation: flash 1s ease-out; }
+@keyframes flash { 0% { box-shadow: 0 0 0 4px var(--seal); } 100% { box-shadow: 0 2px 0 var(--bg-deep); } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Taskmaster Series Ranker</h1>
+      <p class="lede">Score every contestant. Each series is ranked by the total of its five, and every favourite adds a half-point bonus.</p>
+    </div>
+    <ul class="legend" aria-label="Rating scale">
+      <li><b class="v-1">−1</b>Bad</li>
+      <li><b class="v0">0</b>Neutral</li>
+      <li><b class="v1">+1</b>Fun</li>
+      <li><b class="v2">+2</b>Outstanding</li>
+      <li><b class="vfav">♥</b>Favourite +0.5</li>
+    </ul>
+  </header>
+
+  <div class="tools">
+    <label class="search"><span hidden>Find a contestant or series</span>
+      <input id="q" type="search" placeholder="Find a contestant or series" autocomplete="off">
+    </label>
+    <button class="chip" id="specials" aria-pressed="false">Include specials</button>
+    <span class="status" id="status" role="status">Saved in this browser</span>
+  </div>
+
+  <div class="layout">
+    <main class="board" id="board" aria-label="Series"></main>
+    <aside class="board-side">
+      <section class="lb" aria-labelledby="lb-title">
+        <h2 id="lb-title">Leaderboard</h2>
+        <p class="sub" id="lb-sub">Your series, best to worst</p>
+        <ol id="lb"></ol>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script>
+const SERIES = [
+  ["s1","Series 1",2015,true,["Frank Skinner","Josh Widdicombe","Roisin Conaty","Romesh Ranganathan","Tim Key"]],
+  ["s2","Series 2",2016,true,["Doc Brown","Joe Wilkinson","Jon Richardson","Katherine Ryan","Richard Osman"]],
+  ["s3","Series 3",2016,true,["Al Murray","Dave Gorman","Paul Chowdhry","Rob Beckett","Sara Pascoe"]],
+  ["s4","Series 4",2017,true,["Hugh Dennis","Joe Lycett","Lolly Adefope","Mel Giedroyc","Noel Fielding"]],
+  ["s5","Series 5",2017,true,["Aisling Bea","Bob Mortimer","Mark Watson","Nish Kumar","Sally Phillips"]],
+  ["coc1","Champion of Champions",2017,true,["Bob Mortimer","Josh Widdicombe","Katherine Ryan","Noel Fielding","Rob Beckett"],true],
+  ["s6","Series 6",2018,true,["Alice Levine","Asim Chaudhry","Liza Tarbuck","Russell Howard","Tim Vine"]],
+  ["s7","Series 7",2018,true,["James Acaster","Jessica Knappett","Kerry Godliman","Phil Wang","Rhod Gilbert"]],
+  ["s8","Series 8",2019,true,["Iain Stirling","Joe Thomas","Lou Sanders","Paul Sinha","Sian Gibson"]],
+  ["s9","Series 9",2019,true,["David Baddiel","Ed Gamble","Jo Brand","Katy Wix","Rose Matafeo"]],
+  ["s10","Series 10",2020,true,["Daisy May Cooper","Johnny Vegas","Katherine Parkinson","Mawaan Rizwan","Richard Herring"]],
+  ["nyt1","New Year Treat",2021,true,["John Hannah","Krishnan Guru-Murthy","Nicola Coughlan","Rylan Clark","Shirley Ballas"],true],
+  ["s11","Series 11",2021,true,["Charlotte Ritchie","Jamali Maddix","Lee Mack","Mike Wozniak","Sarah Kendall"]],
+  ["s12","Series 12",2021,true,["Alan Davies","Desiree Burch","Guz Khan","Morgana Robinson","Victoria Coren Mitchell"]],
+  ["nyt2","New Year Treat II",2022,true,["Adrian Chiles","Claudia Winkleman","Jonnie Peacock","Lady Leshurr","Sayeeda Warsi"],true],
+  ["s13","Series 13",2022,true,["Ardal O'Hanlon","Bridget Christie","Chris Ramsey","Judi Love","Sophie Duker"]],
+  ["coc2","Champion of Champions II",2022,true,["Ed Gamble","Kerry Godliman","Liza Tarbuck","Lou Sanders","Richard Herring"],true],
+  ["s14","Series 14",2022,true,["Dara Ó Briain","Fern Brady","John Kearns","Munya Chawawa","Sarah Millican"]],
+  ["nyt3","New Year Treat III",2023,true,["Amelia Dimoldenberg","Carol Vorderman","Greg James","Mo Farah","Rebecca Lucy Taylor"],true],
+  ["s15","Series 15",2023,true,["Frankie Boyle","Ivo Graham","Jenny Eclair","Kiell Smith-Bynoe","Mae Martin"]],
+  ["s16","Series 16",2023,true,["Julian Clary","Lucy Beaumont","Sam Campbell","Sue Perkins","Susan Wokoma"]],
+  ["nyt4","New Year Treat IV",2024,true,["Deborah Meaden","Kojey Radical","Lenny Rush","Steve Backshall","Zoe Ball"],true],
+  ["coc3","Champion of Champions III",2024,true,["Dara Ó Briain","Kiell Smith-Bynoe","Morgana Robinson","Sarah Kendall","Sophie Duker"],true],
+  ["s17","Series 17",2024,true,["Joanne McNally","John Robins","Nick Mohammed","Sophie Willan","Steve Pemberton"]],
+  ["s18","Series 18",2024,true,["Andy Zaltzman","Babatúndé Aléshé","Emma Sidi","Jack Dee","Rosie Jones"]],
+  ["nyt5","New Year Treat V",2024,true,["David James","Hannah Fry","Martin Lewis","Melanie Blatt","Sue Johnston"],true],
+  ["s19","Series 19",2025,true,["Fatiha El-Ghorri","Jason Mantzoukas","Mathew Baynton","Rosie Ramsey","Stevie Martin"]],
+  ["s20","Series 20",2025,true,["Ania Magliano","Maisie Adam","Phil Ellis","Reece Shearsmith","Sanjeev Bhaskar"]],
+  ["coc4","Champion of Champions IV",2025,true,["Andy Zaltzman","John Robins","Maisie Adam","Mathew Baynton","Sam Campbell"],true],
+  ["nyt6","New Year Treat VI",2026,true,["Big Zuu","Jill Scott","Rose Ayling-Ellis","Sam Ryder","Susie Dent"],true],
+  ["s21","Series 21",2026,true,["Amy Gledhill","Armando Iannucci","Joanna Page","Joel Dommett","Kumail Nanjiani"]],
+  ["s22","Series 22",2026,false,["Chloe Petts","Isy Suttie","Matt Lucas","Nina Conti","Richard Ayoade"]],
+].map(([id, name, year, finished, cast, special]) => ({ id, name, year, finished, cast, special: !!special }));
+
+const FAV_BONUS = 0.5; // each favourite nudges its series up half a point
+const SCORES = [[-1, "−1", "Bad"], [0, "0", "Neutral"], [1, "+1", "Fun"], [2, "+2", "Outstanding"]];
+const slug = n => n.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const fmt = n => n > 0 ? "+" + n : n < 0 ? "−" + Math.abs(n) : "0";
+const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>';
+
+let ratings = {}, favs = {}, showSpecials = false, query = "";
+
+/* ---------- state hygiene ---------- */
+function clean(d) {
+  const r = {}, f = {};
+  if (d && typeof d === "object") {
+    for (const [k, v] of Object.entries(d.ratings || {})) if ([-1, 0, 1, 2].includes(v)) r[k] = v;
+    for (const [k, v] of Object.entries(d.favs || {})) if (v === true) f[k] = true;
+  }
+  return { ratings: r, favs: f };
+}
+function apply(d) { ({ ratings, favs } = clean(d)); }
+const hasAny = () => Object.keys(ratings).length > 0 || Object.keys(favs).length > 0;
+
+/* ---------- scoring ---------- */
+function seasonStats(s) {
+  let total = 0, rated = 0, ticks = 0;
+  for (const p of s.cast) {
+    const k = slug(p);
+    if (k in ratings) { total += ratings[k]; rated++; }
+    if (favs[k]) ticks++;
+  }
+  return { total: total + ticks * FAV_BONUS, rated, ticks };
+}
+
+/* ---------- board ---------- */
+const boardEl = document.getElementById("board");
+function visibleSeries() { return SERIES.filter(s => showSpecials || !s.special); }
+
+function buildBoard() {
+  const list = visibleSeries();
+  boardEl.innerHTML = list.map(s => `
+    <article class="card" id="card-${s.id}" data-id="${s.id}">
+      <div class="card-head">
+        <div>
+          <h2>${esc(s.name)}</h2>
+          <div class="meta">${s.year}${s.finished ? "" : ' · <span class="airing">Still airing</span>'}</div>
+        </div>
+        <div class="seal" aria-label="Series score"><div class="seal-in"><span data-total></span><small>pts</small></div></div>
+      </div>
+      <ul class="rows">
+        ${s.cast.map(p => {
+          const k = slug(p);
+          return `<li class="row" data-slug="${k}" data-name="${esc(p.toLowerCase())}">
+            <button class="fav" data-fav="${k}" aria-pressed="false" aria-label="Favourite: ${esc(p)}" title="Mark as a favourite">${TICK}</button>
+            <span class="name">${esc(p)}</span>
+            <div class="seg" role="group" aria-label="Rating for ${esc(p)}">
+              ${SCORES.map(([v, l, t]) => `<button data-rate="${k}" data-v="${v}" aria-pressed="false" title="${t}">${l}</button>`).join("")}
+            </div>
+          </li>`;
+        }).join("")}
+      </ul>
+      <div class="rated" data-rated></div>
+    </article>`).join("") + '<p class="none" id="none" hidden>No contestant or series matches that search.</p>';
+  applyFilter();
+  refresh();
+}
+
+function applyFilter() {
+  const q = query.trim().toLowerCase();
+  let shown = 0;
+  for (const card of boardEl.querySelectorAll(".card")) {
+    const s = SERIES.find(x => x.id === card.dataset.id);
+    const seriesHit = !q || s.name.toLowerCase().includes(q) || String(s.year) === q;
+    let anyRow = false;
+    for (const row of card.querySelectorAll(".row")) {
+      const hit = seriesHit || row.dataset.name.normalize("NFD").replace(/[̀-ͯ]/g, "").includes(q.normalize("NFD").replace(/[̀-ͯ]/g, ""));
+      row.hidden = !hit;
+      anyRow ||= hit;
+    }
+    card.hidden = !anyRow;
+    if (anyRow) shown++;
+  }
+  document.getElementById("none").hidden = shown > 0;
+}
+
+function refresh() {
+  for (const b of boardEl.querySelectorAll("[data-rate]")) b.setAttribute("aria-pressed", String(ratings[b.dataset.rate] === Number(b.dataset.v)));
+  for (const b of boardEl.querySelectorAll("[data-fav]")) b.setAttribute("aria-pressed", String(!!favs[b.dataset.fav]));
+  for (const card of boardEl.querySelectorAll(".card")) {
+    const st = seasonStats(SERIES.find(x => x.id === card.dataset.id));
+    card.querySelector("[data-total]").textContent = st.rated || st.ticks ? fmt(st.total) : "–";
+    card.querySelector("[data-rated]").textContent = `${st.rated}/5 rated` + (st.ticks ? ` · ${st.ticks} favourite${st.ticks > 1 ? "s" : ""}` : "");
+  }
+  renderLeaderboard();
+}
+
+/* ---------- leaderboard ---------- */
+function renderLeaderboard() {
+  const order = visibleSeries().map((s, i) => ({ s, i, ...seasonStats(s) }));
+  const rated = order.filter(x => x.rated > 0 || x.ticks > 0).sort((a, b) => b.total - a.total || b.ticks - a.ticks || b.rated - a.rated || a.i - b.i);
+  const unrated = order.filter(x => x.rated === 0 && x.ticks === 0);
+  const row = (x, rank) => `<li class="${rank ? "" : "unrated"}"><a href="#card-${x.s.id}" data-jump="${x.s.id}">
+      <span class="rank">${rank || "·"}</span>
+      <span><span class="lb-name">${esc(x.s.name)}</span>
+        <span class="pips">${x.s.cast.map(p => { const k = slug(p); return `<span class="pip ${k in ratings ? "r" + ratings[k] : ""}" title="${esc(p)}"></span>`; }).join("")}
+        ${x.ticks ? `<span class="ticks">♥${x.ticks}</span>` : ""}</span></span>
+      <span class="score">${x.rated || x.ticks ? fmt(x.total) : ""}</span></a></li>`;
+  // Competition ranking: equal totals and favourite counts share a place.
+  let html = "", prev = null, place = 0;
+  rated.forEach((x, n) => {
+    if (!prev || prev.total !== x.total || prev.ticks !== x.ticks) place = n + 1;
+    html += row(x, place); prev = x;
+  });
+  if (!rated.length) html += `<li class="empty">Nothing ranked yet. Give any contestant a score and their series lands here.</li>`;
+  if (unrated.length && rated.length) html += `<li class="divider">Not rated yet</li>`;
+  html += unrated.map(x => row(x, 0)).join("");
+  document.getElementById("lb").innerHTML = html;
+  document.getElementById("lb-sub").textContent = rated.length
+    ? `${rated.length} of ${order.length} ranked, best to worst`
+    : "Your series, best to worst";
+}
+
+/* ---------- interactions ---------- */
+boardEl.addEventListener("click", e => {
+  const r = e.target.closest("[data-rate]");
+  const f = e.target.closest("[data-fav]");
+  if (r) {
+    const k = r.dataset.rate, v = Number(r.dataset.v);
+    if (ratings[k] === v) delete ratings[k]; else ratings[k] = v;
+  } else if (f) {
+    const k = f.dataset.fav;
+    if (favs[k]) delete favs[k]; else favs[k] = true;
+  } else return;
+  refresh();
+  scheduleSave();
+});
+document.getElementById("lb").addEventListener("click", e => {
+  const a = e.target.closest("[data-jump]");
+  if (!a) return;
+  e.preventDefault();
+  const card = document.getElementById("card-" + a.dataset.jump);
+  if (!card) return;
+  if (card.hidden) { query = ""; document.getElementById("q").value = ""; applyFilter(); }
+  card.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+  card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
+});
+document.getElementById("q").addEventListener("input", e => { query = e.target.value; applyFilter(); });
+document.getElementById("specials").addEventListener("click", e => {
+  showSpecials = !showSpecials;
+  e.currentTarget.setAttribute("aria-pressed", String(showSpecials));
+  try { localStorage.setItem(LS_VIEW, showSpecials ? "1" : "0"); } catch {}
+  buildBoard();
+});
+
+/* ---------- persistence: browser copy always, account copy when available ---------- */
+const LS = "tm-ranker:v1", LS_VIEW = "tm-ranker:specials";
+const statusEl = document.getElementById("status");
+const setStatus = t => { statusEl.textContent = t; };
+let ref = null, saveTimer = null, saving = false, dirty = false;
+
+function saveLocal() { try { localStorage.setItem(LS, JSON.stringify({ ratings, favs })); } catch {} }
+function scheduleSave() {
+  saveLocal();
+  if (!ref) return;
+  dirty = true;
+  setStatus("Saving…");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 700);
+}
+async function flush() {
+  saveTimer = null;
+  if (saving || !dirty || !ref) return;
+  saving = true; dirty = false;
+  try {
+    await ref.set({ ratings, favs, updatedAt: Date.now() });
+    setStatus("Saved to your account");
+  } catch (err) {
+    if (err && err.code === "unavailable") { dirty = true; saveTimer = setTimeout(flush, 1500 + Math.random() * 1000); }
+    else { ref = null; setStatus("Saved in this browser only"); }
+  }
+  saving = false;
+  if (dirty && !saveTimer) flush();
+}
+
+async function connect() {
+  if (!window.claude || typeof window.claude.use !== "function") return;
+  const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+  if (!db || !user) return;
+  const id = await user.id();
+  if (!id) return;
+  const docRef = db.doc("data/users/" + id + "/taskmaster");
+  let first = true;
+  docRef.onSnapshot(snap => {
+    if (first) {
+      first = false;
+      ref = docRef;
+      if (!snap.exists) {
+        // First visit with an account: carry over anything rated in this browser.
+        if (hasAny()) { dirty = true; flush(); }
+        setStatus("Saved to your account");
+        return;
+      }
+      setStatus("Saved to your account");
+    }
+    if (snap.exists && !dirty && !saving && !snap.metadata.hasPendingWrites) {
+      apply(snap.data()); saveLocal(); refresh();
+    }
+  }, () => { ref = null; setStatus("Saved in this browser only"); });
+}
+
+try { apply(JSON.parse(localStorage.getItem(LS) || "null")); } catch {}
+try { showSpecials = localStorage.getItem(LS_VIEW) === "1"; } catch {}
+document.getElementById("specials").setAttribute("aria-pressed", String(showSpecials));
+buildBoard();
+connect();
+</script>
+
+</body>
+</html>
