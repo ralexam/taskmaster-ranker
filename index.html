@@ -534,7 +534,7 @@ function rankingText(link) {
   const lines = order.map((x, n) => {
     if (!prev || prev.total !== x.total || prev.ticks !== x.ticks) place = n + 1;
     prev = x;
-    return `${place}. ${label(x.s, x.s.country !== "uk" || country === "all")} (${fmt(x.total)}${x.ticks ? " ♥" + x.ticks : ""}${x.boos ? " 👎" + x.boos : ""})`;
+    return `${place}. ${label(x.s, country !== "uk")} (${fmt(x.total)}${x.ticks ? " ♥" + x.ticks : ""}${x.boos ? " 👎" + x.boos : ""})`;
   });
   return `${name ? name + "'s" : "My"} Taskmaster series ranking${country === "uk" || country === "nz" || country === "au" ? " (" + countryOf(country).name + ")" : ""}\n${lines.join("\n")}\n\nSee it and make your own: ${link}`;
 }
