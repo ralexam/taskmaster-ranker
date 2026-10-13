@@ -159,6 +159,20 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
 .readonly .seg button, .readonly .fav { pointer-events: none; }
 .readonly .seg { opacity: .9; }
 
+/* Country tabs */
+.countries { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.countries button { border: 0; border-radius: 999px; padding: 8px 16px; font-weight: 800; font-size: 14px; background: var(--paper); color: var(--ink); }
+.countries button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.countries button.us { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 2px var(--muted); text-decoration: line-through; text-decoration-thickness: 2px; }
+.countries button.us[aria-pressed="true"] { background: var(--muted); color: var(--paper); }
+
+/* The US card: present, but not in the running */
+.card.us-card { grid-column: 1 / -1; max-width: 560px; position: relative; overflow: hidden; }
+.us-card .inner { filter: grayscale(1); opacity: .45; pointer-events: none; user-select: none; }
+.us-card .seal { background: var(--neutral); }
+.stamp { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-12deg); border: 4px solid var(--seal); color: var(--seal); border-radius: 10px; padding: 8px 18px; font-family: var(--display); font-size: clamp(1.3rem, 4.5vw, 2rem); line-height: 1.05; text-align: center; text-transform: uppercase; background: color-mix(in srgb, var(--paper) 80%, transparent); white-space: nowrap; }
+.us-note { margin: 10px 0 0; font-size: 13px; color: var(--muted); font-weight: 700; }
+
 .none { grid-column: 1 / -1; background: var(--paper); border-radius: 14px; padding: 24px; font-weight: 700; }
 .flash { animation: flash 1s ease-out; }
 @keyframes flash { 0% { box-shadow: 0 0 0 4px var(--seal); } 100% { box-shadow: 0 2px 0 var(--bg-deep); } }
@@ -180,6 +194,8 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
       <li><b class="vhate"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="h" d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></b>Hate −0.5</li>
     </ul>
   </header>
+
+  <nav class="countries" id="countries" aria-label="Country"></nav>
 
   <div class="tools">
     <label class="search"><span hidden>Find a contestant or series</span>
@@ -250,7 +266,41 @@ const SERIES = [
   ["nyt6","New Year Treat VI",2026,true,["Big Zuu","Jill Scott","Rose Ayling-Ellis","Sam Ryder","Susie Dent"],true],
   ["s21","Series 21",2026,true,["Amy Gledhill","Armando Iannucci","Joanna Page","Joel Dommett","Kumail Nanjiani"]],
   ["s22","Series 22",2026,false,["Chloe Petts","Isy Suttie","Matt Lucas","Nina Conti","Richard Ayoade"]],
-].map(([id, name, year, finished, cast, special]) => ({ id, name, year, finished, cast, special: !!special }));
+].map(([id, name, year, finished, cast, special]) => ({ id, name, year, finished, cast, special: !!special, country: "uk" }));
+
+const NZ = [
+  ["nz1","Series 1",2020,true,["Angella Dravid","Brynley Stent","Guy Williams","Leigh Hart","Madeleine Sami"]],
+  ["nz2","Series 2",2021,true,["David Correos","Guy Montgomery","Laura Daniel","Matt Heath","Urzila Carlson"]],
+  ["nz3","Series 3",2022,true,["Chris Parker","Josh Thomson","Justine Smith","Kura Forrester","Paul Ego"]],
+  ["nz4","Series 4",2023,true,["Bubbah","Dai Henwood","Karen O'Leary","Melanie Bracewell","Ray O'Leary"]],
+  ["nz5","Series 5",2024,true,["Abby Howells","Ben Hurley","Hayley Sproull","Tofiga Fepuleaʻi","Tom Sainsbury"]],
+  ["nz6","Series 6",2025,true,["Alice Snedden","Bree Tomasel","Jack Ansett","Jackie van Beek","Pax Assadi"]],
+  ["nz7","Series 7",2026,true,["David Fane","Hoani Hotene","Morgana O'Reilly","Rhys Mathewson","Rose Matafeo"]],
+].map(([id, name, year, finished, cast]) => ({ id, name, year, finished, cast, special: false, country: "nz" }));
+
+const AU = [
+  ["au1","Series 1",2023,true,["Danielle Walker","Jimmy Rees","Julia Morris","Luke McGregor","Nina Oyama"]],
+  ["au2","Series 2",2024,true,["Anne Edmonds","Jenny Tian","Josh Thomas","Lloyd Langford","Wil Anderson"]],
+  ["au3","Series 3",2024,true,["Aaron Chen","Concetta Caristo","Mel Buttle","Peter Helliar","Rhys Nicholson"]],
+  ["au4","Series 4",2025,true,["Dave Hughes","Emma Holland","Lisa McCune","Takashi Wakasugi","Tommy Little"]],
+  ["au5","Series 5",2026,true,["Anisa Nandaula","Brett Blake","Celia Pacquola","Joel Creasey","Rove McManus"]],
+].map(([id, name, year, finished, cast]) => ({ id, name, year, finished, cast, special: false, country: "au" }));
+
+SERIES.push(...NZ, ...AU);
+
+// Shown, never scored: it gets no ratings, no leaderboard place and no share code.
+const US = { name: "Season 1", year: 2018, cast: ["Dillon Francis", "Freddie Highmore", "Kate Berlant", "Lisa Lampanelli", "Ron Funches"] };
+
+const COUNTRIES = [
+  { id: "uk", name: "UK", short: "UK" },
+  { id: "nz", name: "New Zealand", short: "NZ" },
+  { id: "au", name: "Australia", short: "AU" },
+  { id: "all", name: "All countries" },
+  { id: "us", name: "US", short: "US" },
+];
+const countryOf = id => COUNTRIES.find(c => c.id === id);
+let country = "uk";
+const label = (s, withCountry = country === "all") => withCountry ? `${countryOf(s.country).short} ${s.name}` : s.name;
 
 const FAV_BONUS = 0.5; // each favourite nudges its series up half a point, each hate down
 const SCORES = [[-1, "−1", "Bad"], [0, "0", "Neutral"], [1, "+1", "Fun"], [2, "+2", "Outstanding"]];
@@ -289,16 +339,43 @@ function seasonStats(s) {
 
 /* ---------- board ---------- */
 const boardEl = document.getElementById("board");
-function visibleSeries() { return SERIES.filter(s => showSpecials || !s.special); }
+function visibleSeries() { return SERIES.filter(s => (country === "all" || s.country === country) && (showSpecials || !s.special)); }
+
+function renderCountries() {
+  document.getElementById("countries").innerHTML = COUNTRIES.map(c =>
+    `<button type="button" data-country="${c.id}" class="${c.id === "us" ? "us" : ""}" aria-pressed="${c.id === country}"${c.id === "us" ? ' title="Not even worth ranking"' : ""}>${esc(c.name)}</button>`).join("");
+  document.getElementById("specials").hidden = !(country === "uk" || country === "all");
+}
+
+function usCard() {
+  return `<article class="card us-card" aria-label="Taskmaster US, not ranked">
+    <div class="inner">
+      <div class="card-head">
+        <div><h2>${US.name}</h2><div class="meta">US · ${US.year}</div></div>
+        <div class="seal"><div class="seal-in"><span>–</span><small>pts</small></div></div>
+      </div>
+      <ul class="rows">${US.cast.map(p => `<li class="row"><span class="name">${esc(p)}</span>
+        <div class="seg">${SCORES.map(([, l]) => `<button disabled tabindex="-1">${l}</button>`).join("")}</div></li>`).join("")}</ul>
+      <p class="us-note">Taskmaster US, Comedy Central. Reggie Watts set the tasks; one season, never renewed.</p>
+    </div>
+    <div class="stamp">Not even<br>worth ranking</div>
+  </article>`;
+}
 
 function buildBoard() {
+  renderCountries();
+  if (country === "us") {
+    boardEl.innerHTML = usCard() + '<p class="none" id="none" hidden></p>';
+    renderLeaderboard();
+    return;
+  }
   const list = visibleSeries();
   boardEl.innerHTML = list.map(s => `
     <article class="card" id="card-${s.id}" data-id="${s.id}">
       <div class="card-head">
         <div>
           <h2>${esc(s.name)}</h2>
-          <div class="meta">${s.year}${s.finished ? "" : ' · <span class="airing">Still airing</span>'}</div>
+          <div class="meta">${country === "all" ? countryOf(s.country).name + " · " : ""}${s.year}${s.finished ? "" : ' · <span class="airing">Still airing</span>'}</div>
         </div>
         <div class="seal" aria-label="Series score"><div class="seal-in"><span data-total></span><small>pts</small></div></div>
       </div>
@@ -323,9 +400,9 @@ function buildBoard() {
 function applyFilter() {
   const q = query.trim().toLowerCase();
   let shown = 0;
-  for (const card of boardEl.querySelectorAll(".card")) {
+  for (const card of boardEl.querySelectorAll(".card[data-id]")) {
     const s = SERIES.find(x => x.id === card.dataset.id);
-    const seriesHit = !q || s.name.toLowerCase().includes(q) || String(s.year) === q;
+    const seriesHit = !q || label(s, true).toLowerCase().includes(q) || countryOf(s.country).name.toLowerCase().includes(q) || String(s.year) === q;
     let anyRow = false;
     for (const row of card.querySelectorAll(".row")) {
       const hit = seriesHit || row.dataset.name.normalize("NFD").replace(/[̀-ͯ]/g, "").includes(q.normalize("NFD").replace(/[̀-ͯ]/g, ""));
@@ -342,7 +419,7 @@ function refresh() {
   for (const b of boardEl.querySelectorAll("[data-rate]")) b.setAttribute("aria-pressed", String(ratings[b.dataset.rate] === Number(b.dataset.v)));
   for (const b of boardEl.querySelectorAll("[data-fav]")) b.setAttribute("aria-pressed", String(!!favs[b.dataset.fav]));
   for (const b of boardEl.querySelectorAll("[data-hate]")) b.setAttribute("aria-pressed", String(!!hates[b.dataset.hate]));
-  for (const card of boardEl.querySelectorAll(".card")) {
+  for (const card of boardEl.querySelectorAll(".card[data-id]")) {
     const st = seasonStats(SERIES.find(x => x.id === card.dataset.id));
     card.querySelector("[data-total]").textContent = st.rated || st.ticks || st.boos ? fmt(st.total) : "–";
     card.querySelector("[data-rated]").textContent = `${st.rated}/5 rated` + (st.ticks ? ` · ${st.ticks} favourite${st.ticks > 1 ? "s" : ""}` : "") + (st.boos ? ` · ${st.boos} hated` : "");
@@ -357,7 +434,7 @@ function renderLeaderboard() {
   const unrated = order.filter(x => x.rated === 0 && x.ticks === 0 && x.boos === 0);
   const row = (x, rank) => `<li class="${rank ? "" : "unrated"}"><a href="#card-${x.s.id}" data-jump="${x.s.id}">
       <span class="rank">${rank || "·"}</span>
-      <span><span class="lb-name">${esc(x.s.name)}</span>
+      <span><span class="lb-name">${esc(label(x.s))}</span>
         <span class="pips">${x.s.cast.map(p => { const k = slug(p); return `<span class="pip ${k in ratings ? "r" + ratings[k] : ""}" title="${esc(p)}"></span>`; }).join("")}
         ${x.ticks ? `<span class="ticks">♥${x.ticks}</span>` : ""}${x.boos ? `<span class="boos">👎${x.boos}</span>` : ""}</span></span>
       <span class="score">${x.rated || x.ticks || x.boos ? fmt(x.total) : ""}</span></a></li>`;
@@ -367,7 +444,8 @@ function renderLeaderboard() {
     if (!prev || prev.total !== x.total || prev.ticks !== x.ticks) place = n + 1;
     html += row(x, place); prev = x;
   });
-  if (!rated.length) html += `<li class="empty">Nothing ranked yet. Give any contestant a score and their series lands here.</li>`;
+  if (country === "us") html += `<li class="empty">Nothing to rank here. Pick another country.</li>`;
+  else if (!rated.length) html += `<li class="empty">Nothing ranked yet. Give any contestant a score and their series lands here.</li>`;
   if (unrated.length && rated.length) html += `<li class="divider">Not rated yet</li>`;
   html += unrated.map(x => row(x, 0)).join("");
   document.getElementById("lb").innerHTML = html;
@@ -447,7 +525,8 @@ function shareLink() {
   return location.origin + location.pathname + "#v=2&share=" + enc + (name ? "&by=" + encodeURIComponent(name) : "");
 }
 function rankingText(link) {
-  const order = SERIES.filter(s => showSpecials || !s.special).map((s, i) => ({ s, i, ...seasonStats(s) }))
+  const pool = country === "us" ? SERIES.filter(s => showSpecials || !s.special) : visibleSeries();
+  const order = pool.map((s, i) => ({ s, i, ...seasonStats(s) }))
     .filter(x => x.rated || x.ticks || x.boos)
     .sort((a, b) => b.total - a.total || b.ticks - a.ticks || b.rated - a.rated || a.i - b.i);
   const name = nameEl.value.trim();
@@ -455,9 +534,9 @@ function rankingText(link) {
   const lines = order.map((x, n) => {
     if (!prev || prev.total !== x.total || prev.ticks !== x.ticks) place = n + 1;
     prev = x;
-    return `${place}. ${x.s.name} (${fmt(x.total)}${x.ticks ? " ♥" + x.ticks : ""}${x.boos ? " 👎" + x.boos : ""})`;
+    return `${place}. ${label(x.s, x.s.country !== "uk" || country === "all")} (${fmt(x.total)}${x.ticks ? " ♥" + x.ticks : ""}${x.boos ? " 👎" + x.boos : ""})`;
   });
-  return `${name ? name + "'s" : "My"} Taskmaster series ranking\n${lines.join("\n")}\n\nSee it and make your own: ${link}`;
+  return `${name ? name + "'s" : "My"} Taskmaster series ranking${country === "uk" || country === "nz" || country === "au" ? " (" + countryOf(country).name + ")" : ""}\n${lines.join("\n")}\n\nSee it and make your own: ${link}`;
 }
 async function copyOut(text, done) {
   outEl.hidden = true;
@@ -510,6 +589,13 @@ document.getElementById("lb").addEventListener("click", e => {
   if (card.hidden) { query = ""; document.getElementById("q").value = ""; applyFilter(); }
   card.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
   card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
+});
+document.getElementById("countries").addEventListener("click", e => {
+  const b = e.target.closest("[data-country]");
+  if (!b || b.dataset.country === country) return;
+  country = b.dataset.country;
+  try { localStorage.setItem("tm-ranker:country", country); } catch {}
+  buildBoard();
 });
 document.getElementById("q").addEventListener("input", e => { query = e.target.value; applyFilter(); });
 document.getElementById("specials").addEventListener("click", e => {
@@ -579,6 +665,7 @@ async function connect() {
 try { apply(JSON.parse(localStorage.getItem(LS) || "null")); } catch {}
 try { showSpecials = localStorage.getItem(LS_VIEW) === "1"; } catch {}
 document.getElementById("specials").setAttribute("aria-pressed", String(showSpecials));
+try { const c = localStorage.getItem("tm-ranker:country"); if (countryOf(c)) country = c; } catch {}
 buildBoard();
 readHash();
 connect();
