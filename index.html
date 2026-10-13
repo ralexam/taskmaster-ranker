@@ -181,6 +181,10 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(2rem, 5vw, 
 .tier.tn .tier-label { background: var(--hate); color: var(--seal-ink); }
 .pchip em { font-style: normal; font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums; background: var(--paper); border-radius: 999px; padding: 1px 7px; }
 .tier-hint { margin: -4px 0 0; font-size: 13px; color: var(--muted); }
+.pchip[data-k] { cursor: grab; user-select: none; -webkit-user-select: none; }
+.pchip .grip { touch-action: none; opacity: .45; font-size: 15px; line-height: 1; margin-left: -3px; padding: 4px 2px; cursor: grab; }
+.pchip.dragging { opacity: .5; pointer-events: none; box-shadow: 0 0 0 2px var(--ink); }
+.is-dragging, .is-dragging * { cursor: grabbing !important; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .pchip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg); color: var(--ink); border-radius: 999px; padding: 5px 11px; font-weight: 800; font-size: 13.5px; }
 .pchip small { font-weight: 700; color: var(--ink); opacity: .6; font-size: 11px; }
@@ -345,6 +349,17 @@ SERIES.push(...NZ, ...AU);
 const US = { name: "Season 1", year: 2018, cast: ["Dillon Francis", "Freddie Highmore", "Kate Berlant", "Lisa Lampanelli", "Ron Funches"] };
 
 // Taskmasters and their assistants, rated like contestants and shared in links as two extra rows.
+// Contestant tiers by personal score (rating ± 0.5): a heart can lift someone to Legendary,
+// a thumbs-down can drop them a tier.
+const TIERS = [
+  ["tl", "+2.5", "Legendary", v => v >= 2.5],
+  ["t2", "+2", "Outstanding", v => v >= 2 && v < 2.5],
+  ["t1", "+1", "Fun", v => v >= 1 && v < 2],
+  ["t0", "0", "Neutral", v => v >= 0 && v < 1],
+  ["t-1", "−1", "Bad", v => v >= -1 && v < 0],
+  ["tn", "−1.5", "Nemesis", v => v < -1],
+];
+
 const CREW = [
   { id: "tm", name: "Taskmasters", cast: ["Greg Davies", "Jeremy Wells", "Tom Gleeson"], from: ["uk", "nz", "au"] },
   { id: "as", name: "Assistants", cast: ["Alex Horne", "Paul Williams", "Tom Cashman"], from: ["uk", "nz", "au"] },
@@ -369,19 +384,20 @@ const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "
 const HATE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="h" d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const TICK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>';
 
-let ratings = {}, favs = {}, hates = {}, showSpecials = false, query = "";
+let ratings = {}, favs = {}, hates = {}, order = {}, showSpecials = false, query = "";
 
 /* ---------- state hygiene ---------- */
 function clean(d) {
-  const r = {}, f = {}, h = {};
+  const r = {}, f = {}, h = {}, o = {};
   if (d && typeof d === "object") {
     for (const [k, v] of Object.entries(d.ratings || {})) if ([-1, 0, 1, 2].includes(v)) r[k] = v;
     for (const [k, v] of Object.entries(d.favs || {})) if (v === true) f[k] = true;
     for (const [k, v] of Object.entries(d.hates || {})) if (v === true && !f[k]) h[k] = true;
+    for (const [k, v] of Object.entries(d.order || {})) if (v && typeof v.t === "string" && Number.isInteger(v.i) && v.i >= 0) o[k] = { t: v.t, i: v.i };
   }
-  return { ratings: r, favs: f, hates: h };
+  return { ratings: r, favs: f, hates: h, order: o };
 }
-function apply(d) { ({ ratings, favs, hates } = clean(d)); }
+function apply(d) { ({ ratings, favs, hates, order } = clean(d)); }
 const hasAny = () => [ratings, favs, hates].some(o => Object.keys(o).length > 0);
 
 /* ---------- scoring ---------- */
@@ -445,26 +461,41 @@ function renderPeople() {
   const chip = x => `<span class="pchip">${markSvg(x.k)}${esc(x.name)}<small>${esc(x.where.join(" · "))}</small>${x.k in ratings ? `<em>${fmt(personScore(x.k))}</em>` : ""}</span>`;
   const rated = all.filter(x => x.k in ratings).length;
   let html = `<div class="tier-summary">${viewing ? esc(viewing) + " has" : "You've"} rated ${rated} of ${all.length} contestants · ♥ ${all.filter(x => favs[x.k]).length} · 👎 ${all.filter(x => hates[x.k]).length}</div>`;
-  html += `<p class="tier-hint">Hearts add half a point and thumbs-downs take half off, which can move someone up or down a tier.</p>`;
-  // Tiers by personal score (rating ± 0.5), so a heart can lift someone to Legendary and a thumbs-down can drop them a tier.
-  const TIERS = [
-    ["tl", "+2.5", "Legendary", v => v >= 2.5],
-    ["t2", "+2", "Outstanding", v => v >= 2 && v < 2.5],
-    ["t1", "+1", "Fun", v => v >= 1 && v < 2],
-    ["t0", "0", "Neutral", v => v >= 0 && v < 1],
-    ["t-1", "−1", "Bad", v => v >= -1 && v < 0],
-    ["tn", "−1.5", "Nemesis", v => v < -1],
-  ];
-  const byScore = arr => arr.sort((a, b) => personScore(b.k) - personScore(a.k) || a.name.localeCompare(b.name));
+  html += `<p class="tier-hint">Hearts add half a point and thumbs-downs take half off, which can move someone up or down a tier.${viewing ? "" : " Drag names (or the ⠿ handle on a phone) to put them in your own order within a tier; arrow keys work too."}</p>`;
+  const rankedChip = (x, cls, t, i, n) => viewing ? chip(x) :
+    `<span class="pchip" tabindex="0" data-k="${x.k}" data-tier="${cls}" aria-label="${esc(x.name)}, ${i + 1} of ${n} in ${t}. Use arrow keys to move.">` +
+    `<span class="grip" aria-hidden="true">⠿</span>${markSvg(x.k)}${esc(x.name)}<small>${esc(x.where.join(" · "))}</small><em>${fmt(personScore(x.k))}</em></span>`;
   for (const [cls, l, t, test] of TIERS) {
-    const inTier = byScore(list.filter(x => x.k in ratings && test(personScore(x.k))));
+    const inTier = tierSort(list.filter(x => x.k in ratings && test(personScore(x.k))), cls);
     html += `<div class="tier ${cls}"><div class="tier-label"><b>${l}</b>${t}<span>${inTier.length} contestant${inTier.length === 1 ? "" : "s"}</span></div>
-      <div class="chips">${inTier.length ? inTier.map(chip).join("") : '<span class="muted">Nobody here yet.</span>'}</div></div>`;
+      <div class="chips">${inTier.length ? inTier.map((x, i) => rankedChip(x, cls, t, i, inTier.length)).join("") : '<span class="muted">Nobody here yet.</span>'}</div></div>`;
   }
   const unrated = sorted(list.filter(x => !(x.k in ratings)));
   html += `<div class="tier tu"><div class="tier-label"><b>?</b>Not rated<span>${unrated.length} contestant${unrated.length === 1 ? "" : "s"}</span></div>
     <div class="chips">${unrated.length ? `<details${q ? " open" : ""}><summary>Show them</summary><div class="chips">${unrated.map(chip).join("")}</div></details>` : '<span class="muted">Everyone has a rating.</span>'}</div></div>`;
   el.innerHTML = html;
+}
+
+const tierOf = k => TIERS.find(([, , , test]) => test(personScore(k)))[0];
+// Custom order wins inside a tier; anyone not yet placed follows, highest score first.
+function tierSort(arr, cls) {
+  const pos = x => order[x.k] && order[x.k].t === cls ? order[x.k].i : Infinity;
+  return arr.sort((a, b) => pos(a) - pos(b) || personScore(b.k) - personScore(a.k) || a.name.localeCompare(b.name));
+}
+// `visible` is the new order of the chips on screen. Contestants hidden by the country tab or
+// search keep their places; the visible ones are dropped back into the slots they occupied.
+function commitOrder(cls, visible, focusK) {
+  const names = new Map();
+  for (const s of SERIES) for (const p of s.cast) { const k = slug(p); if (k in ratings && tierOf(k) === cls) names.set(k, p); }
+  const full = tierSort([...names].map(([k, name]) => ({ k, name })), cls).map(x => x.k);
+  const vis = new Set(visible);
+  const slots = full.map((k, i) => vis.has(k) ? i : -1).filter(i => i >= 0);
+  const merged = slots.length === visible.length ? full.slice() : visible.slice();
+  if (slots.length === visible.length) visible.forEach((k, j) => { merged[slots[j]] = k; });
+  merged.forEach((k, i) => { order[k] = { t: cls, i }; });
+  scheduleSave();
+  renderPeople();
+  if (focusK) boardEl.querySelector(`.pchip[data-k="${focusK}"]`)?.focus();
 }
 
 /* ---------- Taskmasters and assistants ---------- */
@@ -654,8 +685,8 @@ function decodeShare(str, v2) {
 
 let viewing = null, mine = null;
 function enterView(data, name) {
-  if (!viewing) mine = { ratings, favs, hates };
-  ({ ratings, favs, hates } = data);
+  if (!viewing) mine = { ratings, favs, hates, order };
+  ({ ratings, favs, hates, order } = data);
   viewing = name || "A friend";
   document.body.classList.add("readonly");
   document.getElementById("viewing-text").textContent = `You're looking at ${viewing}'s rankings.`;
@@ -665,7 +696,7 @@ function enterView(data, name) {
 }
 function exitView() {
   if (!viewing) return;
-  ({ ratings, favs, hates } = mine);
+  ({ ratings, favs, hates, order } = mine);
   mine = null; viewing = null;
   document.body.classList.remove("readonly");
   document.getElementById("viewing").hidden = true;
@@ -757,6 +788,49 @@ document.getElementById("lb").addEventListener("click", e => {
   card.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
   card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
 });
+let drag = null;
+const chipOrder = chip => [...chip.parentNode.querySelectorAll(".pchip[data-k]")].map(c => c.dataset.k);
+boardEl.addEventListener("pointerdown", e => {
+  const chip = e.target.closest(".pchip[data-k]");
+  if (!chip || viewing || e.button > 0) return;
+  if (e.pointerType !== "mouse" && !e.target.closest(".grip")) return; // touch drags by the handle so the page can still scroll
+  drag = { chip, x: e.clientX, y: e.clientY, id: e.pointerId, on: false };
+});
+window.addEventListener("pointermove", e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  if (!drag.on) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
+    drag.on = true;
+    drag.chip.classList.add("dragging");
+    document.body.classList.add("is-dragging");
+  }
+  e.preventDefault();
+  const over = document.elementFromPoint(e.clientX, e.clientY)?.closest(".pchip[data-k]");
+  if (!over || over === drag.chip || over.parentNode !== drag.chip.parentNode) return;
+  const r = over.getBoundingClientRect();
+  over.parentNode.insertBefore(drag.chip, e.clientX < r.left + r.width / 2 ? over : over.nextSibling);
+});
+function endDrag(e, keep) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag; drag = null;
+  document.body.classList.remove("is-dragging");
+  if (!d.on) return;
+  d.chip.classList.remove("dragging");
+  if (keep) commitOrder(d.chip.dataset.tier, chipOrder(d.chip)); else renderPeople();
+}
+window.addEventListener("pointerup", e => endDrag(e, true));
+window.addEventListener("pointercancel", e => endDrag(e, false));
+boardEl.addEventListener("keydown", e => {
+  const chip = e.target.closest(".pchip[data-k]");
+  const dir = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+  if (!chip || viewing || !dir) return;
+  e.preventDefault();
+  const sib = dir < 0 ? chip.previousElementSibling : chip.nextElementSibling;
+  if (!sib || !sib.matches(".pchip[data-k]")) return;
+  chip.parentNode.insertBefore(chip, dir < 0 ? sib : sib.nextSibling);
+  commitOrder(chip.dataset.tier, chipOrder(chip), chip.dataset.k);
+});
+
 document.getElementById("views").addEventListener("click", e => {
   const b = e.target.closest("[data-view]");
   if (!b || b.dataset.view === view) return;
@@ -785,7 +859,7 @@ const statusEl = document.getElementById("status");
 const setStatus = t => { statusEl.textContent = t; };
 let ref = null, saveTimer = null, saving = false, dirty = false;
 
-function saveLocal() { try { localStorage.setItem(LS, JSON.stringify({ ratings, favs, hates })); } catch {} }
+function saveLocal() { try { localStorage.setItem(LS, JSON.stringify({ ratings, favs, hates, order })); } catch {} }
 function scheduleSave() {
   saveLocal();
   if (!ref) return;
@@ -799,7 +873,7 @@ async function flush() {
   if (saving || !dirty || !ref) return;
   saving = true; dirty = false;
   try {
-    await ref.set({ ratings, favs, hates, updatedAt: Date.now() });
+    await ref.set({ ratings, favs, hates, order, updatedAt: Date.now() });
     setStatus("Saved to your account");
   } catch (err) {
     if (err && err.code === "unavailable") { dirty = true; saveTimer = setTimeout(flush, 1500 + Math.random() * 1000); }
